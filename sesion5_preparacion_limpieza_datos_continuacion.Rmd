@@ -192,17 +192,61 @@ glimpse(datos_hospital_4)
 
 
 
+datos_hospital_esp <- datos_hospital_4 %>%
+  mutate_all(~gsub("case_id", "id_caso", .)) %>%
+  rename_all(~gsub("infection_date", "fecha_infeccion", .)) %>%
+  rename_all(~gsub("date_of_outcome", "fecha_resultado", .)) %>%
+  rename_all(~gsub("gender", "genero", .)) %>%
+  rename_all(~gsub("hospital", "hospital", .)) %>%
+  rename_all(~gsub("infector", "infectador", .)) %>%
+  rename_all(~gsub("age", "edad", .)) %>%
+  rename_all(~gsub("age_unit", "unidad_edad", .)) %>%
+  rename_all(~gsub("wt_kg", "peso_kg", .)) %>%
+  rename_all(~gsub("ht_cm", "altura_cm", .)) %>%
+  rename_all(~gsub("ct_blood", "recuento_glucosa", .)) %>%
+  rename_all(~gsub("fever", "fiebre", .)) %>%
+  rename_all(~gsub("chills", "escalofrios", .)) %>%
+  rename_all(~gsub("cough", "tos", .)) %>%
+  rename_all(~gsub("aches", "dolores", .)) %>%
+  rename_all(~gsub("vomit", "vomito", .)) %>%
+  rename_all(~gsub("temp", "temperatura", .)) %>%
+  rename_all(~gsub("merged_header", "encabezado_fusionado", .)) %>%
+  rename_all(~gsub("20...", "columna20", .)) %>%
+  rename_all(~gsub("anyo_infeccion", "año_infeccion", .))
 
+glimpse(datos_hospital_esp)
 
 ```
 
 b. Eliminar columnas que no proveen información relevante (merged_header y 20..., también
 elimine la columna fever).
 
+```{r}
+
+datos_hospital_esp_lim <- datos_hospital_esp %>%
+  select(-encabezado_fusionado, -...20, -fiebre)
+
+```
+
 c. En gender, podemos pasar f y m a palabras (Femenino, Masculino por ejemplo, o ponerlo
 en mayúsculas como F y M)
+```{r}
 
+datos_hsp_genero <- datos_hospital_esp_lim%>%
+  mutate(genero = case_when(
+    genero == "f" ~ "Femenino",
+    genero == "m" ~ "Masculino",
+    TRUE ~ genero
+  ))
+
+```
 d. Transformar la columna date_of_outcome de carácter a objeto tipo fecha.
+
+```{r}
+datos_hsp_genero$fecha_resultado <- as.Date(datos_hsp_genero$fecha_resultado, format = "%d/%m/%y")
+
+
+```
 
 e. Revise los valores distintos que hay en la columna hospital. (Ooops! Al hacer esto,
 vemos que hay algo extraño. Al parecer, varios hospitales se escribieron de formas 
@@ -211,9 +255,33 @@ son la misma entidad. Igual con varios de los otros. Es común que en medio de
 nuestros análisis nos vayamos dando cuenta de que nuestros datos necesitan más 
 limpieza. Use las funciones estudiadas anteriormente para homogenizar los valores),
 además cambie los NA por "No especifica" y "Other" por "Otros".
+```{r}
+datos_hsp_lim <- datos_hsp_genero %>%
+  mutate(hospital = gsub("Central Hopital", "Central Hospital", hospital)) %>%
+  mutate(hospital = gsub("Cent. Hospital", "Central Hospital", hospital)) %>%
+  mutate(hospital = gsub("Hospital General", "General Hospital", hospital)) %>%
+  mutate(hospital = gsub("Other", "Otros", hospital)) %>%
+  mutate(hospital = if_else(is.na(hospital), "No especifica", hospital))
+
+
+```
 
 f. Cree una nueva columna que se llame mes_infeccion, que indique el mes de la fecha
 de infección.
+```{r}
+datos_hsp_limpio <- datos_hsp_lim |> 
+  mutate(mes_infeccion = month(fecha_infeccion))
 
+
+```
 g. Cree una tabla que indique cuántos casos de infección se presentaron por hospital
 en el mes de febrero del año 2015.
+```{r}
+casos_feb_2015 <- datos_hsp_limpio |> 
+  filter(year(fecha_infeccion) == 2015, month(fecha_infeccion) == 2) |> 
+  count(hospital)
+
+casos_feb_2015
+
+
+```
