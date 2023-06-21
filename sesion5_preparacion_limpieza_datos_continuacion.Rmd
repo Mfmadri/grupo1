@@ -1,0 +1,237 @@
+---
+title: "sesion5_preparacion_limpieza_continuacion"
+author: "Kimberley Isabel Orozco Cornejo"
+date: "2023-06-20"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(readr)
+library(readxl)
+library(tidyr)# doma de datos
+library(janitor) #limpieza de datos
+library(lubridate) #manejo de fechas
+```
+
+## Revisión de la práctica semanal
+
+Para la práctica en grupos, vamos a cargar datos correspondientes a registros hospitalarios.
+Estos datos están almacenados en un repositorio de github como csv. Podemos leerlos
+con la función read_csv de readr.
+
+1. Carga de los datos
+
+```{r}
+datos_hospital <- read_csv2("https://raw.githubusercontent.com/isa229/programacion_analisis_datos_ii/main/registros_hospitales2.csv")
+```
+
+2. Determine si hay filas duplicadas. En el caso de que haya, cuántas y cuáles son?
+
+```{r}
+filas_duplicadas <- datos_hospital |> 
+  janitor::get_dupes()
+```
+
+Hay 71 filas duplicadas que tienen al menos un duplicado. Esta es la lista de las 
+filas con duplicados:
+
+```{r}
+filas_distintas_duplicadas <- filas_duplicadas |> 
+  distinct()
+```
+
+Para eliminar las filas duplicadas es muy fácil, solo hacemos un distinct() de los
+datos originales:
+
+```{r}
+datos_hospital_limpio <- datos_hospital |> 
+  distinct()
+```
+
+Observe que datos hospital pasa de tener 6622 observaciones a tener 6583.
+
+3. Elimine las filas y columnas vacías (si hay). Cuántas filas vacías eliminó? Eliminó 
+alguna columna?
+
+```{r}
+datos_hospital_sin_vacios <- datos_hospital_limpio |> 
+  remove_empty(which = c("rows", "cols"))
+```
+
+Se eliminó una columna (time_admission) y 1 fila adicional.
+
+4. Para las columnas chills, cough, aches, vomit coloque "Sin información"
+en donde haya NAs, además donde diga "Yes", cámbielo por "Sí".
+
+```{r}
+datos_limpios_hospital_1 <- datos_hospital_sin_vacios |> 
+  mutate_at(vars(chills, cough, aches, vomit), ~ifelse(is.na(.), "Sin información", .)) |> 
+  mutate_at(vars(chills, cough, aches, vomit), ~ifelse(. == "yes", "Si", .))
+
+## Ojo: en nueva versión de dplyr, mutate_at está "superseeded". Eso significa que se puede usar, pero se recomienda el uso de otra función
+?mutate_at
+
+datos_limpios_hospital <- datos_hospital_sin_vacios |> 
+  mutate(across(c(chills, cough, aches, vomit), function(x) ifelse(is.na(x), "Sin información", x))) |>  
+  mutate(across(c(chills, cough, aches, vomit), function(x) ifelse(x == "yes", "Si", x)))
+
+```
+
+Tips adicionales: 
+
+También podemos colocar alguna condición para aplicar el mutate. Por ejemplo, 
+suponga que solo queremos aplicar la función anterior a las columnas que son de
+tipo character, podemos especificarlo de la siguiente manera con un where dentro
+del across:
+
+```{r}
+datos_limpios_ejemplo <- datos_hospital_sin_vacios |> 
+  mutate(across(where(is.character), function(x) na_if(x, ""))) #Coloca NA si encuentra "" en alguna observación para todas las columnas de tipo caracter
+```
+
+Además, para aplicar una función a todas las columnas de un dataframe, podemos
+hacerlo con across y everything() de tidyr:
+
+```{r}
+datos_limpios_ejemplo <- datos_hospital_sin_vacios |> 
+  mutate(across(everything(), function(x) ifelse(is.na(x), "Sin información", x))) # Coloca Sin Información si encuentra alguna observación es NA para todas las columnas
+```
+
+5. Cree una nueva columna llamada tiene_fiebre que se calcule de la siguiente manera:
+Si la temperatura es mayor o igual que 37, diga "Si", pero si la temperatura es menor a 37, diga "No".
+
+```{r}
+datos_hospital_2 <- datos_limpios_hospital |> 
+  mutate(tiene_fiebre = ifelse(temp >= 37, "Si", "No"))
+```
+
+6. Revise el conjunto de datos e implemente otras estrategias de limpieza y preparación
+de datos que le parezcan relevantes para este conjunto de datos.
+
+Algunas sugerencias de estrategias:
+
+a. Ajustar los nombres de las columnas a español
+b. Eliminar columnas que no proveen información relevante (merged_header y 20...)
+c. En gender, podemos pasar f y m a palabras (Femenino, Masculino por ejemplo, o ponerlo
+en mayúsculas)
+d. Transformar las fechas de carácter a objeto tipo fecha (esto se hace con lubridate)
+e. Revisar los valores distintos en las demás columnas para ver si es necesario 
+homogenizar algunos valores.
+
+Ya conocemos cómo implementar algunas de estas estrategias. Demos un vistazo ahora
+al manejo de fechas en preparación de datos con la librería lubridate:
+
+### Manejo de fechas
+
+La librería lubridate nos permite la transformación de columnas de tipo carácter 
+a tipo date o datetime. 
+
+```{r}
+glimpse(datos_limpios_hospital)
+```
+
+Lo primero que tenemos que hacer para lograr esto, es identificar el formato 
+que tenemos de las fechas en nuestro conjunto de datos. En este caso, el formato
+es dia/mes/año (dmy). Para transformar esto en una fecha, usamos en este caso 
+la función dmy de lubridate, como se muestra a continuación:
+
+```{r}
+datos_hospital_3 <- datos_limpios_hospital |> 
+  mutate(infection_date = dmy(infection_date))
+```
+
+OJO: Por defecto, al usar las funciones ymd, dmy, mdy de lubridate, obtenemos las
+fechas en formato YYYY-MM-DD. Si hacemos un glimpse a datos_hospital_3, vemos que
+hemos cambiado el tipo de columna a date:
+
+```{r}
+glimpse(datos_hospital_3)
+```
+
+Adicionalmente, suponga que queremos crear una columna nueva llamada anyo, que 
+especifique el anyo de la fecha de infección. Este tipo de transformaciones
+podemos hacerlas usando las funciones year(), month() and day() sobre un objeto
+tipo date. Por ejemplo:
+
+```{r}
+datos_hospital_4 <- datos_hospital_3 |> 
+  mutate(anyo_infeccion = year(infection_date))
+```
+
+Esto extrae automáticamente el año de la fecha de infección.
+
+Como último punto, supongamos también que queremos obtener el rango de las fechas 
+que tenemos en infection_date. Hay varias maneras de hacer esto:
+
+Como una tabla:
+```{r}
+datos_hospital_3 %>%
+  summarise(min_fecha = min(infection_date, na.rm = TRUE),
+            max_fecha = max(infection_date, na.rm = TRUE))
+```
+
+Los valores por separado:
+```{r}
+min(datos_hospital_3$infection_date, na.rm = TRUE)
+max(datos_hospital_3$infection_date, na.rm = TRUE)
+```
+
+Práctica grupal:
+
+En grupos y usando git y un repositorio de github, divida las siguientes tareas
+con sus compañeras sobre preparación y limpieza de datos:
+
+a. Ajustar los nombres de las columnas a español:
+
+```{r}
+datos_hospital_4 <- datos_hospital_4 |>
+  rename("ID" = "case_id",
+         "fecha_de_infeccion" = "infection_date")
+```
+
+
+
+```{r}
+datos_hospital_4 <- datos_hospital_4 |>
+  rename("fecha_de_salida" = "date_of_outcome",
+         "genero" = "gender",
+         "edad" = "age",
+         "unidad_edad" = "age_unit",
+         "ct_sangre" = "ct_blood",
+         "temperatura" = "temp")
+```
+
+```{r}
+datos_hospital_4 <- datos_hospital_4 |>
+  rename("escalosfríos" = "chills",
+         "tos" = "cough",
+         "dolores" = "aches",
+         "vomito" = "vomit")
+```
+123
+
+b. Eliminar columnas que no proveen información relevante (merged_header y 20..., también
+elimine la columna fever).
+
+c. En gender, podemos pasar f y m a palabras (Femenino, Masculino por ejemplo, o ponerlo
+en mayúsculas como F y M)
+
+d. Transformar la columna date_of_outcome de carácter a objeto tipo fecha.
+
+e. Revise los valores distintos que hay en la columna hospital. (Ooops! Al hacer esto,
+vemos que hay algo extraño. Al parecer, varios hospitales se escribieron de formas 
+distintas pero parecen ser el mismo. Por ejemplo, Central Hopital y Central Hospital 
+son la misma entidad. Igual con varios de los otros. Es común que en medio de 
+nuestros análisis nos vayamos dando cuenta de que nuestros datos necesitan más 
+limpieza. Use las funciones estudiadas anteriormente para homogenizar los valores),
+además cambie los NA por "No especifica" y "Other" por "Otros".
+
+f. Cree una nueva columna que se llame mes_infeccion, que indique el mes de la fecha
+de infección.
+
+g. Cree una tabla que indique cuántos casos de infección se presentaron por hospital
+en el mes de febrero del año 2015.
