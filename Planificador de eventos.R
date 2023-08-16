@@ -14,12 +14,16 @@ ui <- fluidPage(
     ),
     mainPanel(
       width = 7,
-      h2(style = "color: blue;", "Vamos a planificar tu día especial!"),
-      tags$hr(style = "border-color: blue;"),
+      div(style = "text-align: center;",
+          h2(style = "color: blue;", "Vamos a planificar tu día especial!"),
+          tags$hr(style = "border-color: blue;")
+      ),
       div(style = "display: inline-block; margin-left: 20px; background-color: #EBF5FB; padding: 10px; border-radius: 5px;",
           h4(style = "font-size: 25px;", HTML("<strong>Detalles del evento:</strong>")),
-          h4("Nombre del Evento:"),
-          textOutput("nombre_output"),
+          div(style = "display: inline-block;",
+              h4("Nombre del Evento:"),
+              span(style = "display: inline; font-weight: bold;", textOutput("nombre_output"))
+          ),
           fluidRow(
             column(6,
                    h4("Tema del Evento:"),
